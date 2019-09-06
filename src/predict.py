@@ -18,7 +18,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', default='', type=str)
 parser.add_argument('--resume', default='', type=str)
 parser.add_argument('--batch_size', default=16, type=int)
-parser.add_argument('--data_path', default='/media/weidi/2TB-2/datasets/voxceleb1/wav', type=str)
+parser.add_argument('--data_path', default='/home/dzung/data/voice_datatset/', type=str)
 # set up network configuration.
 parser.add_argument('--net', default='resnet34s', choices=['resnet34s', 'resnet34l'], type=str)
 parser.add_argument('--ghost_cluster', default=2, type=int)
@@ -27,7 +27,7 @@ parser.add_argument('--bottleneck_dim', default=512, type=int)
 parser.add_argument('--aggregation_mode', default='gvlad', choices=['avg', 'vlad', 'gvlad'], type=str)
 # set up learning rate, training loss and optimizer.
 parser.add_argument('--loss', default='softmax', choices=['softmax', 'amsoftmax'], type=str)
-parser.add_argument('--test_type', default='normal', choices=['normal', 'hard', 'extend'], type=str)
+parser.add_argument('--test_type', default='koov', choices=['normal', 'hard', 'extend'], type=str)
 
 global args
 args = parser.parse_args()
@@ -49,8 +49,11 @@ def main():
         verify_list = np.loadtxt('../meta/voxceleb1_veri_test_hard.txt', str)
     elif args.test_type == 'extend':
         verify_list = np.loadtxt('../meta/voxceleb1_veri_test_extended.txt', str)
+    elif args.test_type == 'koov':
+        verify_list = np.loadtxt('../meta/koov.txt', str)
     else:
         raise IOError('==> unknown test type.')
+
 
     verify_lb = np.array([int(i[0]) for i in verify_list])
     list1 = np.array([os.path.join(args.data_path, i[1]) for i in verify_list])
@@ -102,11 +105,14 @@ def main():
                              hop_length=params['hop_length'], n_fft=params['nfft'],
                              spec_len=params['spec_len'], mode='eval')
         specs = np.expand_dims(np.expand_dims(specs, 0), -1)
-    
+
         v = network_eval.predict(specs)
         feats += [v]
-    
+
     feats = np.array(feats)
+
+    print('Finish extracting features for {}/{}th wav.'.format(total_length, total_length))
+    print('Start predicting {} samples'.format(list1.shape[0]))
 
     # ==> compute the pair-wise similarity.
     for c, (p1, p2) in enumerate(zip(list1, list2)):
@@ -118,7 +124,7 @@ def main():
 
         scores += [np.sum(v1*v2)]
         labels += [verify_lb[c]]
-        print('scores : {}, gt : {}'.format(scores[-1], verify_lb[c]))
+        # print('scores : {}, gt : {}'.format(scores[-1], verify_lb[c]))
 
     scores = np.array(scores)
     labels = np.array(labels)
@@ -126,8 +132,14 @@ def main():
     np.save(os.path.join(result_path, 'prediction_scores.npy'), scores)
     np.save(os.path.join(result_path, 'groundtruth_labels.npy'), labels)
 
+    threshold = 0.75
+    predictions = np.greater(scores, np.ones(scores.shape) * threshold).astype(np.int)
+    result = np.equal(predictions, labels)
+    accuracy = np.sum(result)/result.shape[0]
+    print("Accuracy for threshold {} is {}".format(threshold, accuracy))
+
     eer, thresh = toolkits.calculate_eer(labels, scores)
-    print('==> model : {}, EER: {}'.format(args.resume, eer))
+    print('==> model : {}, EER: {}, thres: {}'.format(args.resume, eer, thresh))
 
 
 def set_result_path(args):
