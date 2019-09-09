@@ -1,0 +1,6 @@
+numpy==1.16.4
+keras==2.2.4
+librosa==0.7.0
+soundfile==0.10.2
+sounddevice==0.3.13
+tensorflow==1.14.0
