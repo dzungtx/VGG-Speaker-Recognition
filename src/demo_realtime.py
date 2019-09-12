@@ -1,6 +1,6 @@
 from datetime import datetime as dt
 from extractor import Extractor
-from imutils import paths
+# from imutils import paths
 from queue import Queue
 import argparse
 import numpy as np
@@ -38,7 +38,6 @@ def main():
     parser.add_argument('-th', '--threshold', type=float, default=0.85,
                         help='threshold for match score')
     args = parser.parse_args()
-
     detect_real_time(args)
 
 
@@ -53,10 +52,9 @@ def record_input(args):
 
     def callback(indata, frames, time, status):
         """This is called (from a separate thread) for each audio block."""
-        if status:
-            print(status, flush=True)
+        # if status:
+        #     print(status, flush=True)
         queue.put(indata.copy())
-
     with sd.InputStream(samplerate=args.samplerate, device=args.device,
                         channels=args.channels, callback=callback):
         counter = 0
@@ -122,7 +120,9 @@ def load_dataset(args, extractor):
     data = {}
     start_time = time.time()
     print("[INFO] Loading dataset...")
-    records = paths.list_files('dataset', validExts=('.wav'))
+    path = 'dataset'
+    files = os.listdir(path)
+    records = [os.path.join(path, i) for i in files if i.endswith('.wav')]
     for record in records:
         if record != 'dataset/test_voice.wav':
             name = record.split(os.path.sep)[-1].split('_')[0]
@@ -155,7 +155,6 @@ def detect_real_time(args):
         os.mkdir('dataset')
     extractor = load_extractor()
     data = load_dataset(args, extractor)
-
     while True:
         print('Choose mode:')
         print('1. Input voice')
